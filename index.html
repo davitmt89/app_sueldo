@@ -1,0 +1,816 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mi sueldo en tiempo real</title>
+<style>
+:root{
+  --bg:#0b1020; --panel:#131a2e; --panel2:#19223b; --panel3:#202b48;
+  --text:#eef3ff; --muted:#98a5c2; --green:#70e5a5; --blue:#7eb7ff;
+  --yellow:#f2c36d; --red:#ff9999; --purple:#b8a1ff; --border:rgba(255,255,255,.09);
+  --shadow:0 24px 60px rgba(0,0,0,.28);
+}
+*{box-sizing:border-box}
+body{
+  margin:0;min-height:100vh;color:var(--text);
+  font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+  background:
+    radial-gradient(circle at 10% 0%,rgba(126,183,255,.14),transparent 30%),
+    radial-gradient(circle at 95% 12%,rgba(112,229,165,.10),transparent 28%),
+    var(--bg);
+}
+button,input,select{font:inherit}
+button{cursor:pointer}
+.app{width:min(1280px,calc(100% - 28px));margin:auto;padding:28px 0 56px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:18px}
+.brand h1{margin:0;font-size:clamp(26px,4vw,42px);letter-spacing:-.04em}
+.brand p{margin:6px 0 0;color:var(--muted);font-size:14px}
+.real-clock{border:1px solid var(--border);padding:9px 13px;border-radius:999px;background:rgba(255,255,255,.035);font-variant-numeric:tabular-nums;color:var(--muted)}
+.tabs{
+  display:flex;gap:8px;overflow:auto;padding:6px;margin-bottom:18px;border:1px solid var(--border);
+  background:rgba(255,255,255,.025);border-radius:18px
+}
+.tab{
+  border:0;background:transparent;color:var(--muted);padding:10px 14px;border-radius:12px;white-space:nowrap
+}
+.tab.active{background:var(--panel3);color:var(--text)}
+.view{display:none}.view.active{display:block}
+.card{
+  border:1px solid var(--border);border-radius:22px;
+  background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.012)),var(--panel);
+  box-shadow:var(--shadow)
+}
+.grid-2{display:grid;grid-template-columns:1.35fr .65fr;gap:18px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.hero{padding:28px;min-height:490px;display:flex;flex-direction:column}
+.hero-head{display:flex;justify-content:space-between;gap:12px;color:var(--muted);font-size:14px}
+.status-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:8px;background:var(--green);box-shadow:0 0 14px rgba(112,229,165,.6)}
+.status-dot.off{background:#66718a;box-shadow:none}.status-dot.pause{background:var(--yellow);box-shadow:0 0 14px rgba(242,195,109,.55)}
+.hero-main{text-align:center;padding:58px 10px 40px}
+.eyebrow{text-transform:uppercase;letter-spacing:.14em;font-size:12px;font-weight:800;color:var(--muted)}
+.money{margin-top:12px;color:var(--green);font-size:clamp(52px,9vw,92px);line-height:1;font-weight:850;letter-spacing:-.06em;font-variant-numeric:tabular-nums}
+.sub{margin-top:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.progress-track{height:11px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden}
+.progress{height:100%;width:0;background:linear-gradient(90deg,var(--blue),var(--green));border-radius:99px}
+.progress-labels{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-top:8px}
+.mini-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:auto;padding-top:28px}
+.stat{padding:16px;border-radius:16px;border:1px solid var(--border);background:var(--panel2)}
+.stat .k{font-size:12px;color:var(--muted);margin-bottom:7px}.stat .v{font-size:21px;font-weight:760;font-variant-numeric:tabular-nums}
+.side{padding:22px}.side h2,.section-title{font-size:18px;margin:0 0 16px}
+.big-card{padding:22px}.metric{padding:18px;border-radius:17px;background:var(--panel2);border:1px solid var(--border);margin-bottom:10px}
+.metric .label{font-size:12px;color:var(--muted)}.metric .value{font-size:28px;font-weight:800;margin-top:6px;font-variant-numeric:tabular-nums}
+.metric .detail{font-size:12px;color:var(--muted);margin-top:5px}
+.calendar-wrap{padding:20px}
+.calendar-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}
+.calendar-nav{display:flex;align-items:center;gap:8px}.calendar-title{font-size:21px;font-weight:800;min-width:210px;text-align:center}
+.icon-btn,.ghost-btn,.primary-btn,.danger-btn{
+  border:1px solid var(--border);color:var(--text);background:var(--panel2);border-radius:12px;padding:9px 12px
+}
+.icon-btn{width:40px;height:40px;padding:0}.primary-btn{background:rgba(112,229,165,.12);border-color:rgba(112,229,165,.25)}
+.danger-btn{background:rgba(255,153,153,.08);border-color:rgba(255,153,153,.22);color:#ffd1d1}
+.weekdays,.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+.weekday{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);text-align:center;padding:7px}
+.day{
+  min-height:106px;border:1px solid var(--border);background:var(--panel2);border-radius:15px;padding:10px;
+  position:relative;transition:.15s;cursor:pointer;overflow:hidden
+}
+.day:hover{transform:translateY(-1px);border-color:rgba(126,183,255,.35)}
+.day.empty{background:transparent;border-style:dashed;opacity:.25;cursor:default}.day.empty:hover{transform:none}
+.day.today{outline:2px solid rgba(126,183,255,.58)}
+.day-num{font-weight:800;font-size:14px}.day-state{font-size:11px;margin-top:7px;color:var(--muted)}
+.day-hours{font-size:11px;margin-top:4px;color:var(--muted)}.day-money{font-size:13px;font-weight:800;margin-top:8px}
+.day.work .day-money{color:var(--green)}.day.vacation{background:rgba(184,161,255,.08)}.day.holiday{background:rgba(242,195,109,.08)}.day.off{opacity:.68}
+.legend{display:flex;flex-wrap:wrap;gap:12px;color:var(--muted);font-size:12px;margin-top:14px}.legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}
+.month-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.schedule-list{display:grid;gap:10px}
+.schedule-row{padding:16px;border:1px solid var(--border);border-radius:16px;background:var(--panel2)}
+.schedule-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.schedule-head strong{min-width:85px}
+.schedule-body{display:grid;grid-template-columns:1fr 1fr 1.5fr;gap:10px;margin-top:12px;align-items:start}
+.field{margin-bottom:14px}.field label,.mini-label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+input,select{
+  width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--border);
+  padding:11px 12px;border-radius:12px;outline:none
+}
+input:focus,select:focus{border-color:rgba(126,183,255,.6);box-shadow:0 0 0 3px rgba(126,183,255,.1)}
+.inline-check{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px}.inline-check input{width:auto;accent-color:var(--green)}
+.pause-list{display:grid;gap:7px}.pause-row{display:grid;grid-template-columns:1fr 1fr auto;gap:7px}.pause-row button{width:38px;border:1px solid var(--border);background:var(--panel3);color:var(--text);border-radius:10px}
+.add-pause{margin-top:7px;font-size:12px;border:0;background:transparent;color:var(--blue);padding:0}
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.settings-card{padding:22px}
+.summary-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.summary-card{padding:22px}.summary-card h3{margin:0 0 16px;font-size:16px}
+.summary-line{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid var(--border);font-size:14px}.summary-line:last-child{border-bottom:0}
+.summary-line span:first-child{color:var(--muted)}
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;place-items:center;padding:20px;z-index:50}
+.modal-backdrop.open{display:grid}.modal{width:min(620px,100%);max-height:90vh;overflow:auto;padding:22px}
+.modal-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}.modal-head h2{margin:0;font-size:20px}
+.modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.hidden{display:none!important}.hint{font-size:12px;color:var(--muted);line-height:1.45;margin-top:6px}
+.toast{position:fixed;right:18px;bottom:18px;background:var(--panel3);border:1px solid var(--border);padding:12px 14px;border-radius:13px;box-shadow:var(--shadow);display:none;z-index:80}
+.file-input{display:none}
+@media(max-width:980px){
+  .grid-2,.settings-grid{grid-template-columns:1fr}.month-summary{grid-template-columns:repeat(2,1fr)}.summary-grid{grid-template-columns:1fr}
+}
+@media(max-width:720px){
+  .app{width:min(100% - 18px,1280px);padding-top:16px}.topbar{align-items:flex-start;flex-direction:column}
+  .weekdays,.calendar-grid{gap:4px}.day{min-height:88px;padding:7px;border-radius:11px}.day-hours{display:none}.day-state{font-size:10px}.day-money{font-size:11px}
+  .calendar-wrap{padding:12px}.calendar-head{align-items:flex-start;flex-direction:column}.calendar-nav{width:100%;justify-content:space-between}.calendar-title{min-width:0}
+  .mini-stats,.grid-3{grid-template-columns:1fr}.schedule-body{grid-template-columns:1fr}.month-summary{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand">
+      <h1>Mi sueldo en tiempo real</h1>
+      <p>Calendario, jornadas y dinero acumulado sin salir del navegador.</p>
+    </div>
+    <div class="real-clock" id="realClock">--:--:--</div>
+  </div>
+
+  <nav class="tabs">
+    <button class="tab active" data-view="today">Hoy</button>
+    <button class="tab" data-view="calendar">Calendario</button>
+    <button class="tab" data-view="schedules">Horarios</button>
+    <button class="tab" data-view="summary">Resumen</button>
+    <button class="tab" data-view="settings">Configuración</button>
+  </nav>
+
+  <main>
+    <section class="view active" id="view-today">
+      <div class="grid-2">
+        <div class="card hero">
+          <div class="hero-head">
+            <div><span class="status-dot" id="todayDot"></span><span id="todayStatus">Trabajando</span></div>
+            <div id="todayDate"></div>
+          </div>
+          <div class="hero-main">
+            <div class="eyebrow">Ganado hoy</div>
+            <div class="money" id="todayEarned">0,00 €</div>
+            <div class="sub" id="todayWorked">0 h 00 min trabajados</div>
+          </div>
+          <div class="progress-track"><div class="progress" id="todayProgress"></div></div>
+          <div class="progress-labels"><span id="todayStart">—</span><span id="todayPct">0 %</span><span id="todayEnd">—</span></div>
+          <div class="mini-stats">
+            <div class="stat"><div class="k">Por hora hoy</div><div class="v" id="todayPerHour">0,00 €</div></div>
+            <div class="stat"><div class="k">Por minuto</div><div class="v" id="todayPerMinute">0,000 €</div></div>
+            <div class="stat"><div class="k">Por segundo</div><div class="v" id="todayPerSecond">0,0000 €</div></div>
+          </div>
+        </div>
+
+        <div class="card side">
+          <h2>Este mes</h2>
+          <div class="metric">
+            <div class="label">Ganado hasta ahora</div>
+            <div class="value" id="monthEarnedNow">0,00 €</div>
+            <div class="detail" id="monthEarnedDetail">Incluye el día de hoy en tiempo real.</div>
+          </div>
+          <div class="metric">
+            <div class="label">Previsión a final de mes</div>
+            <div class="value" id="monthForecast">0,00 €</div>
+            <div class="detail">Respeta vacaciones, festivos, días libres y jornadas personalizadas.</div>
+          </div>
+          <div class="metric">
+            <div class="label">Días con sueldo</div>
+            <div class="value" id="monthPaidDays">0</div>
+            <div class="detail" id="monthPaidDaysDetail">de 0 días planificados</div>
+          </div>
+          <div class="metric">
+            <div class="label">Horas previstas</div>
+            <div class="value" id="monthHours">0 h</div>
+            <div class="detail" id="monthNonWorkDetail">0 días no computables</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-calendar">
+      <div class="month-summary">
+        <div class="stat"><div class="k">Ganado hasta ahora</div><div class="v" id="calEarned">0,00 €</div></div>
+        <div class="stat"><div class="k">Previsión del mes</div><div class="v" id="calForecast">0,00 €</div></div>
+        <div class="stat"><div class="k">Horas previstas</div><div class="v" id="calHours">0 h</div></div>
+        <div class="stat"><div class="k">Días no computables</div><div class="v" id="calNonWork">0</div></div>
+      </div>
+      <div class="card calendar-wrap">
+        <div class="calendar-head">
+          <button class="ghost-btn" id="goToday">Ir a hoy</button>
+          <div class="calendar-nav">
+            <button class="icon-btn" id="prevMonth">‹</button>
+            <div class="calendar-title" id="calendarTitle"></div>
+            <button class="icon-btn" id="nextMonth">›</button>
+          </div>
+          <button class="ghost-btn" id="applyWeekToMonth">Reaplicar horarios semanales</button>
+        </div>
+        <div class="weekdays">
+          <div class="weekday">Lun</div><div class="weekday">Mar</div><div class="weekday">Mié</div>
+          <div class="weekday">Jue</div><div class="weekday">Vie</div><div class="weekday">Sáb</div><div class="weekday">Dom</div>
+        </div>
+        <div class="calendar-grid" id="calendarGrid"></div>
+        <div class="legend">
+          <span><i style="background:var(--green)"></i>Trabajo</span>
+          <span><i style="background:var(--purple)"></i>Vacaciones</span>
+          <span><i style="background:var(--yellow)"></i>Festivo</span>
+          <span><i style="background:#66718a"></i>Libre</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-schedules">
+      <div class="card big-card">
+        <h2 class="section-title">Horario semanal</h2>
+        <p class="hint" style="margin-top:-8px;margin-bottom:16px">Este horario sirve como plantilla para cada mes. Después puedes cambiar cualquier día concreto desde el calendario.</p>
+        <div class="schedule-list" id="scheduleList"></div>
+      </div>
+    </section>
+
+    <section class="view" id="view-summary">
+      <div class="summary-grid">
+        <div class="card summary-card">
+          <h3>Mes actual</h3>
+          <div class="summary-line"><span>Ganado hasta este instante</span><strong id="sumEarned">0,00 €</strong></div>
+          <div class="summary-line"><span>Previsión a final de mes</span><strong id="sumForecast">0,00 €</strong></div>
+          <div class="summary-line"><span>Sueldo base configurado</span><strong id="sumBase">0,00 €</strong></div>
+          <div class="summary-line"><span>Horas previstas por plantilla</span><strong id="sumBaselineHours">0 h</strong></div>
+          <div class="summary-line"><span>Horas que realmente computan</span><strong id="sumActualHours">0 h</strong></div>
+        </div>
+        <div class="card summary-card">
+          <h3>Días del mes</h3>
+          <div class="summary-line"><span>Trabajo</span><strong id="sumWorkDays">0</strong></div>
+          <div class="summary-line"><span>Vacaciones</span><strong id="sumVacationDays">0</strong></div>
+          <div class="summary-line"><span>Festivos</span><strong id="sumHolidayDays">0</strong></div>
+          <div class="summary-line"><span>Libres</span><strong id="sumOffDays">0</strong></div>
+          <div class="summary-line"><span>Días laborables de plantilla</span><strong id="sumBaselineDays">0</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-settings">
+      <div class="settings-grid">
+        <div class="card settings-card">
+          <h2 class="section-title">Sueldo mensual</h2>
+          <div class="field">
+            <label>Importe mensual (€)</label>
+            <input id="salaryAmount" type="text" inputmode="decimal" autocomplete="off" value="2000,00" placeholder="Ej. 2000,50">
+            <div class="hint">Puedes usar coma o punto para los decimales.</div>
+          </div>
+
+          <label class="inline-check" style="margin:2px 0 14px">
+            <input type="checkbox" id="monthlyEqualPerDay">
+            Cada día trabajado completo vale lo mismo
+          </label>
+
+          <div class="hint" id="salaryExplanation"></div>
+        </div>
+
+        <div class="card settings-card">
+          <h2 class="section-title">Datos y copias de seguridad</h2>
+          <p class="hint">La app guarda todo automáticamente en este navegador mediante almacenamiento local. No necesita servidor.</p>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:14px">
+            <button class="primary-btn" id="exportJson">Exportar copia JSON</button>
+            <button class="ghost-btn" id="importJson">Importar JSON</button>
+            <button class="ghost-btn" id="exportCsv">Exportar mes a CSV</button>
+            <button class="danger-btn" id="resetData">Restablecer datos</button>
+          </div>
+          <input class="file-input" id="jsonFile" type="file" accept=".json,application/json">
+          <p class="hint" style="margin-top:14px">El JSON sirve para restaurar toda la aplicación. El CSV es una tabla legible del mes visible en el calendario.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="modal-backdrop" id="dayModal">
+  <div class="card modal">
+    <div class="modal-head">
+      <h2 id="modalTitle">Editar día</h2>
+      <button class="icon-btn" id="closeModal">×</button>
+    </div>
+
+    <div class="field">
+      <label>Tipo de día</label>
+      <select id="dayStatus">
+        <option value="work">Trabajado</option>
+        <option value="vacation">Vacaciones</option>
+        <option value="holiday">Festivo</option>
+        <option value="off">Día libre / no trabajado</option>
+      </select>
+    </div>
+
+    <div id="workEditor">
+      <label class="inline-check" style="margin-bottom:12px">
+        <input type="checkbox" id="useTemplate" checked>
+        Usar el horario semanal de este día
+      </label>
+      <div id="customSchedule" class="hidden">
+        <div class="grid-2" style="grid-template-columns:1fr 1fr">
+          <div class="field"><label>Entrada</label><input type="time" id="dayStart"></div>
+          <div class="field"><label>Salida</label><input type="time" id="dayEnd"></div>
+        </div>
+        <div>
+          <div class="mini-label">Pausas</div>
+          <div id="dayBreaks"></div>
+          <button class="add-pause" id="addDayPause" type="button">+ Añadir pausa</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="hint" id="dayImpact"></div>
+
+    <div class="modal-footer">
+      <button class="ghost-btn" id="clearOverride">Restaurar valor de plantilla</button>
+      <button class="primary-btn" id="saveDay">Guardar día</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const STORE_KEY = "salaryPlannerV3";
+const oldKey = "salaryClockPrefs";
+const dayNames = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
+const monthNames = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+let calendarCursor = new Date();
+calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth(), 1);
+let editingDate = null;
+let tempDayBreaks = [];
+
+function defaultWeek(){
+  return {
+    0:{enabled:false,start:"09:00",end:"17:00",breaks:[]},
+    1:{enabled:true,start:"08:00",end:"17:30",breaks:[{start:"14:00",end:"15:00"}]},
+    2:{enabled:true,start:"09:00",end:"17:00",breaks:[{start:"14:00",end:"15:00"}]},
+    3:{enabled:true,start:"09:00",end:"17:00",breaks:[{start:"14:00",end:"15:00"}]},
+    4:{enabled:true,start:"09:00",end:"17:00",breaks:[{start:"14:00",end:"15:00"}]},
+    5:{enabled:true,start:"09:00",end:"15:00",breaks:[]},
+    6:{enabled:false,start:"09:00",end:"17:00",breaks:[]}
+  };
+}
+function freshState(){
+  return {
+    version:3,
+    settings:{salaryAmount:2000,monthlyEqualPerDay:false},
+    week:defaultWeek(),
+    overrides:{}
+  };
+}
+let state = freshState();
+
+function toast(msg){
+  $("toast").textContent=msg;$("toast").style.display="block";
+  clearTimeout(toast.t);toast.t=setTimeout(()=>$("toast").style.display="none",2200);
+}
+function saveState(){localStorage.setItem(STORE_KEY,JSON.stringify(state))}
+function loadState(){
+  try{
+    const saved=JSON.parse(localStorage.getItem(STORE_KEY)||"null");
+    if(saved && saved.settings && saved.week){
+      state=saved;
+      if(typeof state.settings.monthlyEqualPerDay!=="boolean") state.settings.monthlyEqualPerDay=false;
+      state.settings.salaryAmount=parseAmount(state.settings.salaryAmount);
+      delete state.settings.salaryType;
+      return
+    }
+  }catch(e){}
+  // Migración básica desde la primera versión, si existe.
+  try{
+    const old=JSON.parse(localStorage.getItem(oldKey)||"null");
+    if(old){
+      state=freshState();
+      state.settings.salaryAmount=parseAmount(old.salary)||100;
+      const start=old.start||"09:00",end=old.end||"17:00";
+      const br=Array.isArray(old.breaks)?old.breaks.filter(x=>x.start&&x.end):[];
+      for(let d=1;d<=5;d++) state.week[d]={enabled:true,start,end,breaks:JSON.parse(JSON.stringify(br))};
+      saveState();
+    }
+  }catch(e){}
+}
+function pad(n){return String(n).padStart(2,"0")}
+function keyFromDate(d){return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`}
+function dateFromKey(k){const [y,m,d]=k.split("-").map(Number);return new Date(y,m-1,d)}
+function parseTime(v){
+  if(!v)return null;const p=v.split(":").map(Number);
+  if(p.some(Number.isNaN))return null;return p[0]*3600+p[1]*60+(p[2]||0)
+}
+function fmtMoney(v,d=2){return new Intl.NumberFormat("es-ES",{style:"currency",currency:"EUR",minimumFractionDigits:d,maximumFractionDigits:d}).format(Number.isFinite(v)?v:0)}
+function parseAmount(v){
+  if(typeof v==="number") return Number.isFinite(v)?v:0;
+  let s=String(v??"").trim().replace(/\s/g,"");
+  if(!s) return 0;
+  // Admite 1234,56 / 1234.56 / 1.234,56 / 1,234.56
+  const lastComma=s.lastIndexOf(","), lastDot=s.lastIndexOf(".");
+  if(lastComma>-1 && lastDot>-1){
+    if(lastComma>lastDot) s=s.replace(/\./g,"").replace(",",".");
+    else s=s.replace(/,/g,"");
+  }else if(lastComma>-1){
+    s=s.replace(",",".");
+  }
+  s=s.replace(/[^0-9.+-]/g,"");
+  const n=Number(s);
+  return Number.isFinite(n)?n:0;
+}
+function fmtHours(sec){
+  sec=Math.max(0,Math.round(sec));const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60);
+  return m?`${h} h ${pad(m)} min`:`${h} h`
+}
+function validSchedule(s){return s&&s.start&&s.end&&parseTime(s.end)>parseTime(s.start)}
+function normalizeBreaks(schedule){
+  if(!validSchedule(schedule))return[];
+  const a=parseTime(schedule.start),b=parseTime(schedule.end),raw=Array.isArray(schedule.breaks)?schedule.breaks:[];
+  const list=raw.map(x=>({start:parseTime(x.start),end:parseTime(x.end)}))
+    .filter(x=>x.start!==null&&x.end!==null&&x.end>x.start)
+    .map(x=>({start:Math.max(a,x.start),end:Math.min(b,x.end)})).filter(x=>x.end>x.start).sort((x,y)=>x.start-y.start);
+  const merged=[];
+  for(const x of list){
+    const last=merged[merged.length-1];
+    if(!last||x.start>last.end)merged.push({...x});else last.end=Math.max(last.end,x.end)
+  }
+  return merged;
+}
+function scheduleSeconds(schedule){
+  if(!validSchedule(schedule))return 0;
+  const span=parseTime(schedule.end)-parseTime(schedule.start);
+  const breaks=normalizeBreaks(schedule).reduce((s,b)=>s+b.end-b.start,0);
+  return Math.max(0,span-breaks)
+}
+function copySchedule(s){return {start:s.start,end:s.end,breaks:(s.breaks||[]).map(b=>({...b}))}}
+function templateForDate(d){return state.week[d.getDay()]||{enabled:false,start:"09:00",end:"17:00",breaks:[]}}
+function effectiveDay(d){
+  const k=keyFromDate(d),tpl=templateForDate(d),ov=state.overrides[k];
+  if(ov){
+    if(ov.status!=="work")return {status:ov.status,schedule:null,source:"override"};
+    const sch=ov.customSchedule?copySchedule(ov.customSchedule):(tpl.enabled?copySchedule(tpl):null);
+    return {status:sch?"work":"off",schedule:sch,source:"override"};
+  }
+  return tpl.enabled?{status:"work",schedule:copySchedule(tpl),source:"template"}:{status:"off",schedule:null,source:"template"}
+}
+function baselineMonth(y,m){
+  const last=new Date(y,m+1,0).getDate();let seconds=0,days=0;
+  for(let n=1;n<=last;n++){
+    const d=new Date(y,m,n),tpl=templateForDate(d);
+    if(tpl.enabled){const s=scheduleSeconds(tpl);if(s>0){seconds+=s;days++}}
+  }
+  return {seconds,days}
+}
+function effectiveMonthBasis(y,m){
+  const last=new Date(y,m+1,0).getDate();let seconds=0,days=0;
+  for(let n=1;n<=last;n++){
+    const d=new Date(y,m,n),day=effectiveDay(d);
+    if(day.status==="work" && day.schedule){
+      const s=scheduleSeconds(day.schedule);
+      if(s>0){seconds+=s;days++}
+    }
+  }
+  return {seconds,days}
+}
+function monthRateInfo(y,m){
+  const base=baselineMonth(y,m);
+  const actual=effectiveMonthBasis(y,m);
+  const amount=parseAmount(state.settings.salaryAmount);
+  if(state.settings.monthlyEqualPerDay){
+    return {
+      mode:"monthlyDaily",
+      dailyRate:actual.days?amount/actual.days:0,
+      base,
+      actual,
+      baseAmount:amount
+    };
+  }
+  return {
+    mode:"fixedRate",
+    rate:actual.seconds?amount/actual.seconds:0,
+    base,
+    actual,
+    baseAmount:amount
+  };
+}
+function fullDayEarnings(d,info){
+  const day=effectiveDay(d);if(day.status!=="work"||!day.schedule)return 0;
+  if(info.mode==="monthlyDaily")return info.dailyRate||0;
+  return scheduleSeconds(day.schedule)*info.rate
+}
+function workedSecondsAt(schedule,nowSec){
+  if(!validSchedule(schedule))return 0;
+  const start=parseTime(schedule.start),end=parseTime(schedule.end);
+  const cap=Math.min(end,Math.max(start,nowSec));let worked=Math.max(0,cap-start);
+  for(const b of normalizeBreaks(schedule)){
+    worked-=Math.max(0,Math.min(cap,b.end)-Math.max(start,b.start))
+  }
+  return Math.max(0,worked)
+}
+function isInBreak(schedule,nowSec){return normalizeBreaks(schedule).some(b=>nowSec>=b.start&&nowSec<b.end)}
+function partialDayEarnings(d,nowSec,info){
+  const day=effectiveDay(d);if(day.status!=="work"||!day.schedule)return 0;
+  const total=scheduleSeconds(day.schedule);if(total<=0)return 0;
+  const worked=workedSecondsAt(day.schedule,nowSec);
+  if(info.mode==="monthlyDaily")return (info.dailyRate||0)*(worked/total);
+  return worked*info.rate
+}
+function compareDay(a,b){
+  const ka=keyFromDate(a),kb=keyFromDate(b);return ka<kb?-1:ka>kb?1:0
+}
+function monthStats(y,m,now=new Date()){
+  const info=monthRateInfo(y,m),last=new Date(y,m+1,0).getDate(),todayKey=keyFromDate(now);
+  let earned=0,forecast=0,workSeconds=0,workDays=0,vacation=0,holiday=0,off=0;
+  for(let n=1;n<=last;n++){
+    const d=new Date(y,m,n),day=effectiveDay(d),k=keyFromDate(d);
+    if(day.status==="work"&&day.schedule){
+      workDays++;workSeconds+=scheduleSeconds(day.schedule);forecast+=fullDayEarnings(d,info);
+      if(k<todayKey)earned+=fullDayEarnings(d,info);
+      else if(k===todayKey){
+        const sec=now.getHours()*3600+now.getMinutes()*60+now.getSeconds()+now.getMilliseconds()/1000;
+        earned+=partialDayEarnings(d,sec,info)
+      }
+    }else if(day.status==="vacation")vacation++;
+    else if(day.status==="holiday")holiday++;
+    else off++;
+  }
+  if(info.actual && info.actual.days>0){
+    forecast=parseAmount(state.settings.salaryAmount);
+  }else{
+    forecast=0;
+  }
+  return {info,earned,forecast,workSeconds,workDays,vacation,holiday,off}
+}
+function statusLabel(s){return {work:"Trabajo",vacation:"Vacaciones",holiday:"Festivo",off:"Libre"}[s]||s}
+function dayRate(d,info){
+  const day=effectiveDay(d);if(day.status!=="work"||!day.schedule)return 0;
+  const sec=scheduleSeconds(day.schedule);if(!sec)return 0;
+  return fullDayEarnings(d,info)/sec
+}
+function renderToday(){
+  const now=new Date(),d=new Date(now.getFullYear(),now.getMonth(),now.getDate()),day=effectiveDay(d),info=monthRateInfo(d.getFullYear(),d.getMonth());
+  $("todayDate").textContent=now.toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long"});
+  const dot=$("todayDot");dot.className="status-dot";
+  if(day.status!=="work"||!day.schedule){
+    dot.classList.add("off");$("todayStatus").textContent=statusLabel(day.status);
+    $("todayEarned").textContent=fmtMoney(0);$("todayWorked").textContent="Hoy no computa como jornada trabajada";
+    $("todayProgress").style.width="0%";$("todayPct").textContent="0 %";$("todayStart").textContent="—";$("todayEnd").textContent="—";
+    ["todayPerHour","todayPerMinute","todayPerSecond"].forEach(id=>$(id).textContent=fmtMoney(0,id==="todayPerHour"?2:id==="todayPerMinute"?3:4));
+  }else{
+    const secNow=now.getHours()*3600+now.getMinutes()*60+now.getSeconds()+now.getMilliseconds()/1000;
+    const start=parseTime(day.schedule.start),end=parseTime(day.schedule.end),total=scheduleSeconds(day.schedule),worked=workedSecondsAt(day.schedule,secNow);
+    const earned=partialDayEarnings(d,secNow,info),pct=total?Math.min(100,worked/total*100):0,rate=dayRate(d,info);
+    $("todayEarned").textContent=fmtMoney(earned);$("todayWorked").textContent=`${fmtHours(worked)} trabajados`;
+    $("todayProgress").style.width=pct+"%";$("todayPct").textContent=pct.toFixed(1).replace(".",",")+" %";
+    $("todayStart").textContent=day.schedule.start;$("todayEnd").textContent=day.schedule.end;
+    $("todayPerHour").textContent=fmtMoney(rate*3600,2);$("todayPerMinute").textContent=fmtMoney(rate*60,3);$("todayPerSecond").textContent=fmtMoney(rate,4);
+    if(secNow<start){dot.classList.add("off");$("todayStatus").textContent="La jornada aún no ha empezado"}
+    else if(secNow>=end){dot.classList.add("off");$("todayStatus").textContent="Jornada terminada"}
+    else if(isInBreak(day.schedule,secNow)){dot.classList.add("pause");$("todayStatus").textContent="En pausa"}
+    else $("todayStatus").textContent="Trabajando";
+  }
+  const st=monthStats(now.getFullYear(),now.getMonth(),now);
+  $("monthEarnedNow").textContent=fmtMoney(st.earned);$("monthForecast").textContent=fmtMoney(st.forecast);
+  const daysPassedEarned=countPaidDaysToNow(now.getFullYear(),now.getMonth(),now);
+  $("monthPaidDays").textContent=daysPassedEarned;$("monthPaidDaysDetail").textContent=`de ${st.workDays} días computables`;
+  $("monthHours").textContent=fmtHours(st.workSeconds);$("monthNonWorkDetail").textContent=`${st.vacation+st.holiday+st.off} días no computables`;
+}
+function countPaidDaysToNow(y,m,now){
+  const todayKey=keyFromDate(now),last=new Date(y,m+1,0).getDate();let n=0;
+  for(let i=1;i<=last;i++){const d=new Date(y,m,i),day=effectiveDay(d),k=keyFromDate(d);if(day.status==="work"&&k<=todayKey)n++}
+  return n
+}
+function renderCalendar(){
+  const y=calendarCursor.getFullYear(),m=calendarCursor.getMonth(),now=new Date();
+  $("calendarTitle").textContent=`${monthNames[m][0].toUpperCase()+monthNames[m].slice(1)} ${y}`;
+  const stats=monthStats(y,m,now);
+  $("calEarned").textContent=fmtMoney(stats.earned);$("calForecast").textContent=fmtMoney(stats.forecast);
+  $("calHours").textContent=fmtHours(stats.workSeconds);$("calNonWork").textContent=stats.vacation+stats.holiday+stats.off;
+  const grid=$("calendarGrid");grid.innerHTML="";
+  const first=new Date(y,m,1),firstIndex=(first.getDay()+6)%7,last=new Date(y,m+1,0).getDate();
+  for(let i=0;i<firstIndex;i++){const e=document.createElement("div");e.className="day empty";grid.appendChild(e)}
+  const info=monthRateInfo(y,m);
+  for(let n=1;n<=last;n++){
+    const d=new Date(y,m,n),day=effectiveDay(d),cell=document.createElement("div"),k=keyFromDate(d);
+    cell.className=`day ${day.status}${k===keyFromDate(now)?" today":""}`;
+    let hours="",money="";
+    if(day.status==="work"&&day.schedule){
+      hours=`${day.schedule.start}–${day.schedule.end} · ${fmtHours(scheduleSeconds(day.schedule))}`;
+      const full=fullDayEarnings(d,info);
+      let shown=full;
+      if(k===keyFromDate(now)){
+        const ns=now.getHours()*3600+now.getMinutes()*60+now.getSeconds();
+        shown=partialDayEarnings(d,ns,info)
+      }else if(k>keyFromDate(now)) shown=0;
+      money=(k<=keyFromDate(now)?fmtMoney(shown):`Prev. ${fmtMoney(full)}`)
+    }else money="0,00 €";
+    cell.innerHTML=`<div class="day-num">${n}</div><div class="day-state">${statusLabel(day.status)}</div><div class="day-hours">${hours}</div><div class="day-money">${money}</div>`;
+    cell.addEventListener("click",()=>openDayModal(d));
+    grid.appendChild(cell)
+  }
+}
+function renderSchedules(){
+  const box=$("scheduleList");box.innerHTML="";
+  const order=[1,2,3,4,5,6,0];
+  for(const dow of order){
+    const s=state.week[dow],row=document.createElement("div");row.className="schedule-row";
+    row.innerHTML=`
+      <div class="schedule-head">
+        <strong>${dayNames[dow]}</strong>
+        <label class="inline-check"><input type="checkbox" data-action="enabled" data-dow="${dow}" ${s.enabled?"checked":""}> Se trabaja</label>
+      </div>
+      <div class="schedule-body ${s.enabled?"":"hidden"}" data-body="${dow}">
+        <div><label class="mini-label">Entrada</label><input type="time" data-action="start" data-dow="${dow}" value="${s.start}"></div>
+        <div><label class="mini-label">Salida</label><input type="time" data-action="end" data-dow="${dow}" value="${s.end}"></div>
+        <div><label class="mini-label">Pausas</label><div class="pause-list" data-pauselist="${dow}"></div><button class="add-pause" data-addweek="${dow}">+ Añadir pausa</button></div>
+      </div>`;
+    box.appendChild(row);
+    renderWeekPauses(dow)
+  }
+  box.querySelectorAll("input[data-action]").forEach(el=>el.addEventListener("change",()=>{
+    const dow=Number(el.dataset.dow),a=el.dataset.action;
+    if(a==="enabled"){state.week[dow].enabled=el.checked;renderSchedules()}
+    else state.week[dow][a]=el.value;
+    saveState();renderAll()
+  }));
+  box.querySelectorAll("button[data-addweek]").forEach(btn=>btn.addEventListener("click",()=>{
+    const dow=Number(btn.dataset.addweek);state.week[dow].breaks.push({start:"14:00",end:"15:00"});saveState();renderSchedules();renderAll()
+  }))
+}
+function renderWeekPauses(dow){
+  const list=document.querySelector(`[data-pauselist="${dow}"]`);if(!list)return;list.innerHTML="";
+  state.week[dow].breaks.forEach((b,i)=>{
+    const r=document.createElement("div");r.className="pause-row";
+    r.innerHTML=`<input type="time" value="${b.start}"><input type="time" value="${b.end}"><button type="button">×</button>`;
+    const ins=r.querySelectorAll("input");
+    ins[0].addEventListener("change",()=>{b.start=ins[0].value;saveState();renderAll()});
+    ins[1].addEventListener("change",()=>{b.end=ins[1].value;saveState();renderAll()});
+    r.querySelector("button").addEventListener("click",()=>{state.week[dow].breaks.splice(i,1);saveState();renderSchedules();renderAll()});
+    list.appendChild(r)
+  })
+}
+function renderSummary(){
+  const now=new Date(),y=now.getFullYear(),m=now.getMonth(),st=monthStats(y,m,now);
+  $("sumEarned").textContent=fmtMoney(st.earned);$("sumForecast").textContent=fmtMoney(st.forecast);
+  const a=parseAmount(state.settings.salaryAmount);
+  $("sumBase").textContent=fmtMoney(a);
+  $("sumBaselineHours").textContent=fmtHours(st.info.base.seconds);$("sumActualHours").textContent=fmtHours(st.info.actual?.seconds ?? st.workSeconds);
+  $("sumWorkDays").textContent=st.workDays;$("sumVacationDays").textContent=st.vacation;$("sumHolidayDays").textContent=st.holiday;$("sumOffDays").textContent=st.off;$("sumBaselineDays").textContent=st.info.base.days
+}
+function renderSettings(){
+  if(document.activeElement!==$("salaryAmount")){
+    $("salaryAmount").value=String(parseAmount(state.settings.salaryAmount).toFixed(2)).replace(".",",");
+  }
+  $("monthlyEqualPerDay").checked=!!state.settings.monthlyEqualPerDay;
+  $("salaryExplanation").textContent=state.settings.monthlyEqualPerDay
+    ?"El sueldo mensual se divide entre los días que realmente computan en ese mes. Si marcas un día como vacaciones, festivo o libre, deja de contar y el valor del resto de días se recalcula automáticamente."
+    :"El sueldo mensual se reparte entre las horas efectivas que realmente computan en ese mes. Si eliminas una jornada por vacaciones, festivo o día libre, el valor por hora del resto del mes se recalcula automáticamente.";
+}
+function renderAll(){
+  renderToday();renderCalendar();renderSummary();renderSettings()
+}
+function openDayModal(d){
+  editingDate=new Date(d);const k=keyFromDate(d),ov=state.overrides[k],tpl=templateForDate(d),effective=effectiveDay(d);
+  $("modalTitle").textContent=d.toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+  $("dayStatus").value=effective.status;
+  const hasCustom=!!(ov&&ov.status==="work"&&ov.customSchedule);
+  $("useTemplate").checked=!hasCustom;
+  const source=hasCustom?ov.customSchedule:(tpl.enabled?tpl:{start:"09:00",end:"17:00",breaks:[]});
+  $("dayStart").value=source.start||"09:00";$("dayEnd").value=source.end||"17:00";tempDayBreaks=(source.breaks||[]).map(b=>({...b}));
+  renderDayBreaks();syncDayEditor();updateDayImpact();$("dayModal").classList.add("open")
+}
+function renderDayBreaks(){
+  const box=$("dayBreaks");box.innerHTML="";
+  tempDayBreaks.forEach((b,i)=>{
+    const r=document.createElement("div");r.className="pause-row";r.style.marginBottom="7px";
+    r.innerHTML=`<input type="time" value="${b.start}"><input type="time" value="${b.end}"><button type="button">×</button>`;
+    const ins=r.querySelectorAll("input");
+    ins[0].addEventListener("change",()=>{tempDayBreaks[i].start=ins[0].value;updateDayImpact()});
+    ins[1].addEventListener("change",()=>{tempDayBreaks[i].end=ins[1].value;updateDayImpact()});
+    r.querySelector("button").addEventListener("click",()=>{tempDayBreaks.splice(i,1);renderDayBreaks();updateDayImpact()});
+    box.appendChild(r)
+  })
+}
+function syncDayEditor(){
+  const work=$("dayStatus").value==="work";$("workEditor").classList.toggle("hidden",!work);
+  $("customSchedule").classList.toggle("hidden",$("useTemplate").checked)
+}
+function draftDay(){
+  const status=$("dayStatus").value;if(status!=="work")return {status,schedule:null};
+  if($("useTemplate").checked){
+    const tpl=templateForDate(editingDate);return {status:tpl.enabled?"work":"off",schedule:tpl.enabled?copySchedule(tpl):null}
+  }
+  return {status:"work",schedule:{start:$("dayStart").value,end:$("dayEnd").value,breaks:tempDayBreaks.map(b=>({...b}))}}
+}
+function updateDayImpact(){
+  if(!editingDate)return;const draft=draftDay(),info=monthRateInfo(editingDate.getFullYear(),editingDate.getMonth());
+  if(draft.status!=="work"||!draft.schedule){$("dayImpact").textContent="Este día no generará sueldo ni horas computables.";return}
+  const sec=scheduleSeconds(draft.schedule);
+  let amount=info.mode==="monthlyDaily"?(info.dailyRate||0):sec*info.rate;
+  $("dayImpact").textContent=`Impacto previsto: ${fmtHours(sec)} computables · ${fmtMoney(amount)} si se completa la jornada.`
+}
+function saveDayOverride(){
+  if(!editingDate)return;const k=keyFromDate(editingDate),status=$("dayStatus").value;
+  if(status!=="work")state.overrides[k]={status};
+  else{
+    if($("useTemplate").checked)state.overrides[k]={status:"work",customSchedule:null};
+    else state.overrides[k]={status:"work",customSchedule:{start:$("dayStart").value,end:$("dayEnd").value,breaks:tempDayBreaks.map(b=>({...b}))}}
+  }
+  saveState();$("dayModal").classList.remove("open");renderAll();toast("Día actualizado")
+}
+function download(name,content,type){
+  const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)
+}
+function exportJson(){
+  download(`sueldo-backup-${keyFromDate(new Date())}.json`,JSON.stringify(state,null,2),"application/json")
+}
+function csvEscape(v){v=String(v??"");return /[",;\n]/.test(v)?`"${v.replaceAll('"','""')}"`:v}
+function exportCsv(){
+  const y=calendarCursor.getFullYear(),m=calendarCursor.getMonth(),last=new Date(y,m+1,0).getDate(),info=monthRateInfo(y,m),now=new Date();
+  const rows=[["fecha","estado","entrada","salida","pausas","horas_computables","importe_dia_completo","ganado_hasta_ahora"]];
+  for(let n=1;n<=last;n++){
+    const d=new Date(y,m,n),day=effectiveDay(d),k=keyFromDate(d);let sch=day.schedule,full=0,earned=0;
+    if(day.status==="work"&&sch){
+      full=fullDayEarnings(d,info);
+      if(k<keyFromDate(now))earned=full;
+      else if(k===keyFromDate(now)){const ns=now.getHours()*3600+now.getMinutes()*60+now.getSeconds();earned=partialDayEarnings(d,ns,info)}
+    }
+    rows.push([k,statusLabel(day.status),sch?.start||"",sch?.end||"",sch?(sch.breaks||[]).map(b=>`${b.start}-${b.end}`).join(" | "):"",sch?(scheduleSeconds(sch)/3600).toFixed(2):"0.00",full.toFixed(2),earned.toFixed(2)])
+  }
+  const csv="\uFEFF"+rows.map(r=>r.map(csvEscape).join(";")).join("\n");
+  download(`sueldo-${y}-${pad(m+1)}.csv`,csv,"text/csv;charset=utf-8")
+}
+function applyWeekToMonth(){
+  const y=calendarCursor.getFullYear(),m=calendarCursor.getMonth(),last=new Date(y,m+1,0).getDate();
+  let changed=0;
+  for(let n=1;n<=last;n++){
+    const k=keyFromDate(new Date(y,m,n)),ov=state.overrides[k];
+    // Solo se eliminan personalizaciones de jornadas trabajadas.
+    // Vacaciones, festivos y días libres se conservan.
+    if(ov && ov.status==="work"){delete state.overrides[k];changed++}
+  }
+  saveState();renderAll();
+  toast(changed?`${changed} jornadas restauradas; ausencias conservadas`:"No había jornadas personalizadas")
+}
+function resetAll(){
+  if(!confirm("¿Seguro que quieres borrar toda la configuración guardada?"))return;
+  state=freshState();saveState();renderSchedules();renderAll();toast("Datos restablecidos")
+}
+
+document.querySelectorAll(".tab").forEach(btn=>btn.addEventListener("click",()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===btn));
+  document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+  $(`view-${btn.dataset.view}`).classList.add("active");
+  if(btn.dataset.view==="calendar")renderCalendar()
+  if(btn.dataset.view==="schedules")renderSchedules()
+  if(btn.dataset.view==="summary")renderSummary()
+}));
+
+$("prevMonth").addEventListener("click",()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()-1,1);renderCalendar()});
+$("nextMonth").addEventListener("click",()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()+1,1);renderCalendar()});
+$("goToday").addEventListener("click",()=>{const n=new Date();calendarCursor=new Date(n.getFullYear(),n.getMonth(),1);renderCalendar()});
+$("applyWeekToMonth").addEventListener("click",applyWeekToMonth);
+
+$("closeModal").addEventListener("click",()=>$("dayModal").classList.remove("open"));
+$("dayModal").addEventListener("click",e=>{if(e.target===$("dayModal"))$("dayModal").classList.remove("open")});
+$("dayStatus").addEventListener("change",()=>{
+  if($("dayStatus").value==="work" && editingDate && !templateForDate(editingDate).enabled){
+    $("useTemplate").checked=false;
+  }
+  syncDayEditor();updateDayImpact()
+});
+$("useTemplate").addEventListener("change",()=>{syncDayEditor();updateDayImpact()});
+$("dayStart").addEventListener("change",updateDayImpact);$("dayEnd").addEventListener("change",updateDayImpact);
+$("addDayPause").addEventListener("click",()=>{tempDayBreaks.push({start:"14:00",end:"15:00"});renderDayBreaks();updateDayImpact()});
+$("saveDay").addEventListener("click",saveDayOverride);
+$("clearOverride").addEventListener("click",()=>{
+  if(editingDate){delete state.overrides[keyFromDate(editingDate)];saveState();$("dayModal").classList.remove("open");renderAll();toast("Restaurado según la plantilla")}
+});
+
+$("salaryAmount").addEventListener("input",()=>{
+  state.settings.salaryAmount=parseAmount($("salaryAmount").value);
+  saveState();renderToday();renderCalendar();renderSummary();renderSettings()
+});
+$("salaryAmount").addEventListener("blur",()=>renderSettings());
+$("monthlyEqualPerDay").addEventListener("change",()=>{
+  state.settings.monthlyEqualPerDay=$("monthlyEqualPerDay").checked;
+  saveState();renderAll()
+});
+$("exportJson").addEventListener("click",exportJson);$("exportCsv").addEventListener("click",exportCsv);
+$("importJson").addEventListener("click",()=>$("jsonFile").click());
+$("jsonFile").addEventListener("change",async()=>{
+  const f=$("jsonFile").files?.[0];if(!f)return;
+  try{
+    const data=JSON.parse(await f.text());
+    if(!data.settings||!data.week||!data.overrides)throw new Error();
+    state=data;saveState();renderSchedules();renderAll();toast("Copia restaurada correctamente")
+  }catch(e){alert("El archivo no parece una copia válida de esta aplicación.")}
+  $("jsonFile").value=""
+});
+$("resetData").addEventListener("click",resetAll);
+
+loadState();
+renderSchedules();
+renderAll();
+setInterval(()=>{
+  const d=new Date();$("realClock").textContent=d.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  renderToday();
+  if(document.querySelector('[data-view="calendar"]').classList.contains("active"))renderCalendar();
+  if(document.querySelector('[data-view="summary"]').classList.contains("active"))renderSummary()
+},1000);
+</script>
+</body>
+</html>
